@@ -8,9 +8,15 @@
 #define WIFI_TIMEOUT_TIMER 1
 #define CLIENT_TIMEOUT_TIMER 2
 
+//IO PINS DEFINITIONS
 #define BAT_LED_PIN 33
 #define BAT_ANALOG_PIN 32
-#define BAT_THRES 2900
+
+//LOW BATTERY DETECTION PARAMETERS
+#define SUPPLY_VOLTAGE_THRESHOLD 7.0
+#define VOLTAGE_DIVIDER_RATIO 3.0
+#define MCU_MAX_VOLTAGE 3.3
+#define MCU_ADC_BIT_RES 12
 
 #include <WiFi.h>
 #include <Wire.h> 
@@ -19,12 +25,16 @@
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-const char* ssid     = "*****";
-const char* password = "******";
-const char* host = "******.azurewebsites.net";
+//WiFi AP name and password
+const char* ssid     = "***";
+const char* password = "***";
 
-unsigned long timers[TIMER_NUM];
-String ln0, ln1;
+//HTTP server with data
+const char* host = "***.azurewebsites.net";
+
+unsigned long timers[TIMER_NUM]; //array of timers the program uses
+unsigned long analog_thres; //analog value for low battery
+String ln0, ln1; //text to be displayed on both rows of LCD
 
 //initialize all timers
 void init_timers() {
@@ -44,7 +54,7 @@ unsigned long elapsed_timer(byte t_id) {
   }
 
 boolean connect_to_wifi() {
-  // We start by connecting to a WiFi network
+    //We start by connecting to a WiFi network
     Serial.println();
     Serial.println();
     Serial.print("Connecting to ");
@@ -57,8 +67,6 @@ boolean connect_to_wifi() {
     while (WiFi.status() != WL_CONNECTED) {
         if (elapsed_timer(WIFI_TIMEOUT_TIMER) >= WIFI_TIMEOUT) {
           Serial.println("WIFI CONNECTION FAILED");
-          lcd.setCursor(1, 7);
-          lcd.print("failed..");
           //WiFi.end();
           return 0;
           }
@@ -71,8 +79,8 @@ boolean connect_to_wifi() {
     return 1;
   }
 
+//update text to be displayed
 void update_data() {
-    
     //if wifi disconnected, try to reconnect
     if (WiFi.status() != WL_CONNECTED)
       while(!connect_to_wifi());
@@ -80,7 +88,7 @@ void update_data() {
     Serial.print("connecting to ");
     Serial.println(host);
 
-    // Use WiFiClient class to create TCP connections
+    //Use WiFiClient class to create TCP connections
     WiFiClient client;
     const int httpPort = 80;
     if (!client.connect(host, httpPort)) {
@@ -88,12 +96,12 @@ void update_data() {
         return;
     }
     
-    String url = "/data.txt";
+    String url = "/data.txt"; //text file containing data
 
     Serial.print("Requesting URL: ");
     Serial.println(url);
 
-    // This will send the request to the server
+    //This will send the request to the server
     client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                  "Host: " + host + "\r\n" +
                  "Connection: close\r\n\r\n");
@@ -125,6 +133,7 @@ void update_data() {
     Serial.println("closing connection");
   }
 
+//print text to lcd
 void update_lcd() {
   lcd.clear();
   lcd.setCursor(0,0);
@@ -133,7 +142,8 @@ void update_lcd() {
   lcd.print(ln1);
   }
 
-unsigned int calcThres(float min_voltage, float volt_div, float mcu_voltage, byte adc_res) {
+//return analog value threshold for low batter detection
+unsigned int calc_thres(float min_voltage, float volt_div, float mcu_voltage, byte adc_res) {
   float min_input_voltage = min_voltage / volt_div;
   float min_input_ratio = min_input_voltage / mcu_voltage;
   unsigned int max_analog_val = pow(2, adc_res) - 1;
@@ -147,7 +157,6 @@ void init_IO() {
     
     pinMode(BAT_LED_PIN, OUTPUT);
     pinMode(BAT_ANALOG_PIN, INPUT);
-
     digitalWrite(BAT_LED_PIN, LOW);
     
     lcd.begin();
@@ -156,14 +165,16 @@ void init_IO() {
     lcd.print("Initializing...");
   }
 
+//update low battery detection
 void update_bat_led() {
   unsigned int analog_val = analogRead(BAT_ANALOG_PIN);
-  if (analog_val < BAT_THRES) digitalWrite(BAT_LED_PIN, HIGH);
+  if (analog_val < analog_thres) digitalWrite(BAT_LED_PIN, HIGH);
   else digitalWrite(BAT_LED_PIN, LOW);
   }
 
 void setup() {
     init_IO();
+    analog_thres = calc_thres(SUPPLY_VOLTAGE_THRESHOLD, VOLTAGE_DIVIDER_RATIO, MCU_MAX_VOLTAGE, MCU_ADC_BIT_RES);
     //try to connect to wifi until successful
     while(!connect_to_wifi());
     start_timer(UPDATE_TIMER);
