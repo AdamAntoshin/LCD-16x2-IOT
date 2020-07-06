@@ -8,8 +8,7 @@
 #define WIFI_TIMEOUT_TIMER 1
 #define CLIENT_TIMEOUT_TIMER 2
 
-#define DATA_LED_PIN 4
-#define BAT_LED_PIN 16
+#define BAT_LED_PIN 33
 #define BAT_ANALOG_PIN 32
 #define BAT_THRES 2900
 
@@ -20,9 +19,9 @@
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-const char* ssid     = "********";
-const char* password = "*******";
-const char* host = "*******.azurewebsites.net";
+const char* ssid     = "Samsung Galaxy S7 edge 6823";
+const char* password = "12345678";
+const char* host = "adamiot.azurewebsites.net";
 
 unsigned long timers[TIMER_NUM];
 String ln0, ln1;
@@ -46,7 +45,6 @@ unsigned long elapsed_timer(byte t_id) {
 
 boolean connect_to_wifi() {
   // We start by connecting to a WiFi network
-
     Serial.println();
     Serial.println();
     Serial.print("Connecting to ");
@@ -59,11 +57,12 @@ boolean connect_to_wifi() {
     while (WiFi.status() != WL_CONNECTED) {
         if (elapsed_timer(WIFI_TIMEOUT_TIMER) >= WIFI_TIMEOUT) {
           Serial.println("WIFI CONNECTION FAILED");
+          lcd.setCursor(1, 7);
+          lcd.print("failed..");
           //WiFi.end();
           return 0;
           }
     }
-
     Serial.println("");
     Serial.println("WiFi connected");
     Serial.println("IP address: ");
@@ -127,25 +126,33 @@ void update_data() {
   }
 
 void update_lcd() {
+  lcd.clear();
   lcd.setCursor(0,0);
   lcd.print(ln0);
   lcd.setCursor(0,1);
   lcd.print(ln1);
   }
 
+unsigned int calcThres(float min_voltage, float volt_div, float mcu_voltage, byte adc_res) {
+  float min_input_voltage = min_voltage / volt_div;
+  float min_input_ratio = min_input_voltage / mcu_voltage;
+  unsigned int max_analog_val = pow(2, adc_res) - 1;
+  unsigned int threshold = min_input_ratio * max_analog_val;
+  return threshold;
+  }
+
 void init_IO() {
     Serial.begin(SERIAL_BAUD_RATE);
     delay(10);
     
-    pinMode(DATA_LED_PIN, OUTPUT);
     pinMode(BAT_LED_PIN, OUTPUT);
     pinMode(BAT_ANALOG_PIN, INPUT);
 
-    digitalWrite(DATA_LED_PIN, LOW);
     digitalWrite(BAT_LED_PIN, LOW);
     
     lcd.begin();
     lcd.backlight();
+    //lcd.noBacklight();
     lcd.print("Initializing...");
   }
 
@@ -155,21 +162,17 @@ void update_bat_led() {
   else digitalWrite(BAT_LED_PIN, LOW);
   }
 
-void setup()
-{
+void setup() {
     init_IO();
     //try to connect to wifi until successful
     while(!connect_to_wifi());
     start_timer(UPDATE_TIMER);
 }
 
-void loop()
-{ 
+void loop() { 
     //start updating data after a certain time since last update
     if (elapsed_timer(UPDATE_TIMER) >= UPDATE_DELAY) { 
-      digitalWrite(DATA_LED_PIN, HIGH);
       update_data();
-      digitalWrite(DATA_LED_PIN, LOW);
       update_lcd();
       start_timer(UPDATE_TIMER);
     }
