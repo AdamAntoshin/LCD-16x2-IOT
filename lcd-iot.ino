@@ -20,9 +20,9 @@
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-const char* ssid     = "Samsung Galaxy S7 edge 6823";
-const char* password = "12345678";
-const char* host = "adamiot.azurewebsites.net";
+const char* ssid     = "********";
+const char* password = "*******";
+const char* host = "*******.azurewebsites.net";
 
 unsigned long timers[TIMER_NUM];
 String ln0, ln1;
